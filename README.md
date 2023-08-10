@@ -1,2 +1,2 @@
-# Python_Content_Addressable_Network
+# Python Content Addressable Network(CAN)
 Content Addressable Network (CAN) code implemented in python
