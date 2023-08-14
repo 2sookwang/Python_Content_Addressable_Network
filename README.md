@@ -2,14 +2,14 @@
 Content Addressable Network (CAN) code implemented in python
 
 ## 🖥️ Project introduce
-We are working on a project that implements DHT (Distributed hash tables) CAN in Python and applies Federated Learning
+We are working on a project that implements DHT (Distributed hash tables) CAN in Python
 <br>
 
 ## 🕰️ Develop period
 * 23.06.12 ~ present
 
 ### 🧑‍🤝‍🧑 Participating workforce
- - Master's research student  : Sookwang Lee - Comprehensive CAN code configuration, applied Federated Learning
+ - Master's research student  : Sookwang Lee - Comprehensive CAN code configuration
  - undergraduate research student : Yuchan Lee - CAN node verification code (eureka), CAN code update
 
 ### ⚙️ Development environment
