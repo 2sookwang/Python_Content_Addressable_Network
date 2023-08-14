@@ -37,13 +37,13 @@ We are working on a project that implements DHT (Distributed hash tables) CAN in
 **Experiment setup :** `7 dimension` `2048 Node join` `Coordinate size 65536`
 
 **Bootstrap**
-
-`python3 Main.py --host_addr=220.63.132.101 --bootstrap=True --max_coordinate=65536 --dimension=7 --port=12000 --node_num=0 --node_nums=2048`
-
+```
+python3 Main.py --host_addr=220.63.132.101 --bootstrap=True --max_coordinate=65536 --dimension=7 --port=12000 --node_num=0 --node_nums=2048
+```
 **Node**
-
-`python3 Main.py --host_addr=220.63.132.102 --bootstrap=True --max_coordinate=65536 --dimension=7 --port=12001 --node_num=0 --node_nums=2048`
-
+```
+python3 Main.py --host_addr=220.63.132.102 --bootstrap=True --max_coordinate=65536 --dimension=7 --port=12001 --node_num=0 --node_nums=2048`
+```
 ## 
 ### 2. Verification CAN Coordinate
 - Running eureka.py
@@ -59,9 +59,9 @@ We are working on a project that implements DHT (Distributed hash tables) CAN in
 
 ### Running Example 
 **Experiment setup :** `7 dimension` `2048 Node join` `Coordinate size 65536`
-
-`python3 eureka.py --node_nums=2048 --dimension=7 --max_coordinate=65536 --route=log0812`
-
+```
+python3 eureka.py --node_nums=2048 --dimension=7 --max_coordinate=65536 --route=log0812
+```
 ## 
 
 ### 3. Running in Multi node environment
@@ -77,6 +77,6 @@ We are working on a project that implements DHT (Distributed hash tables) CAN in
 
 ### Running Example 
 **Experiment setup :** `7 dimension` `Coordinate size 65536` `2048 Node join`  `number of server 4` 
-
-`./shellscript.sh 1 7 65536 2048 0 4 '220.63.132.101' '220.63.132.102' '220.63.132.72' 220.63.131.150'`
-
+```
+./shellscript.sh 1 7 65536 2048 0 4 '220.63.132.101' '220.63.132.102' '220.63.132.72' 220.63.131.150'
+```
