@@ -23,7 +23,6 @@ from datetime import datetime, timedelta
 import hashlib
 import copy
 import os
-
 # import python file
 from Coordinate import Coordinate
 from Neighbor import Neighbour
