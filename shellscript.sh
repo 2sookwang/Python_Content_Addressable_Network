@@ -44,7 +44,7 @@ then
 echo Mode 1 start
 
 pkill -9 python3
-source ~/anaconda3/bin/activate can
+source ~/anaconda3/bin/activate fed
 
 # Bootstrap ~ Node(node_nums -1) join
 while [ $node -lt $node_nums ]; do
@@ -73,7 +73,7 @@ done
 ((ip_num++))
 
 # send to next server(Mode 2) to join Nodes
-ssh -p 6304 deepl@${server_array[$ip_num]} "source ~/anaconda3/bin/activate can; cd CAN_python; ./shellscript.sh 2 $dimension $max_coordinate $total_node_nums $ip_num $number_of_server ${server_array[@]}"
+ssh -p 6304 deepl@${server_array[$ip_num]} "source ~/anaconda3/bin/activate fed; cd Python_Content_Addressable_Network; ./shellscript.sh 2 $dimension $max_coordinate $total_node_nums $ip_num $number_of_server ${server_array[@]}"
 
 #----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 # Mode 2 is Node join from other servers and last server send Mode 3 to original server 
@@ -107,12 +107,12 @@ done
 if [ $ip_num -ne $number_of_server ];
 then
 # send to next server(Mode 2) to join Nodes
-ssh -p 6304 deepl@${server_array[$ip_num]} "source ~/anaconda3/bin/activate can; cd CAN_python; ./shellscript.sh 2 $dimension $max_coordinate $total_node_nums $ip_num $number_of_server ${server_array[@]}"
+ssh -p 6304 deepl@${server_array[$ip_num]} "source ~/anaconda3/bin/activate fed; cd Python_Content_Addressable_Network; ./shellscript.sh 2 $dimension $max_coordinate $total_node_nums $ip_num $number_of_server ${server_array[@]}"
 
 # if last server join done, send to original server(Mode 3) to verification CAN
 elif [ $ip_num -eq $number_of_server ];
 then
-ssh -p 6304 deepl@${server_array[0]} "source ~/anaconda3/bin/activate can; cd CAN_python; ./shellscript.sh 3 $dimension $max_coordinate $total_node_nums $ip_num $number_of_server ${server_array[@]}"
+ssh -p 6304 deepl@${server_array[0]} "source ~/anaconda3/bin/activate fed; cd Python_Content_Addressable_Network; ./shellscript.sh 3 $dimension $max_coordinate $total_node_nums $ip_num $number_of_server ${server_array[@]}"
 
 fi
 
