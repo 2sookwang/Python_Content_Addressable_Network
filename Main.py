@@ -3,7 +3,11 @@
 """
 
 import numpy as np
-#import torch
+import torch
+import torchvision
+import torchvision.transforms as transforms
+import torchvision.models as models
+import time
 import threading
 import math
 import socket
@@ -39,6 +43,7 @@ if __name__ == '__main__':
     parser.add_argument("--node_nums","-S", help="total number of nodes" , type=int, default=100)
     parser.add_argument("--max_coordinate","-M", help="Coordinate max value", type=int, default=65536)
     parser.add_argument("--hash_text", "-H", help="hash text(subclass name)", type=str, default='animal_cat')
+    parser.add_argument("--gpu_num", "-G", help="node GPU number", type=int, default=0)
     args = parser.parse_args()
     
     this_addr = (this_ip, args.port)
@@ -47,6 +52,6 @@ if __name__ == '__main__':
     server_list = os.environ.get('SERVER_ARRAY').split(',')
 
     if args.bootstrap:
-        BootStrap(args.host_port)
+        NodeBase(args.host_port, args)
     else:
-        NodeBase(args.port) 
+        NodeBase(args.port, args) 

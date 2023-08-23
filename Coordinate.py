@@ -65,21 +65,25 @@ class Coordinate:
             merge = [[min(l1, l2), max(u1, u2)] for i, ((l1, u1), (l2, u2)) in enumerate(zip(self.coords, c.coords))]
             return Coordinate(*(lu for axis in merge for lu in axis))
 
-    def Split_Axis(self, origin_hash_map, join_hash_map):
+    def Split_Axis(self, origin_hash_map, join_hash_map, dimension):
         # Split peer coordinate to join coordinate setting.
         self.oh = origin_hash_map
         self.jh = join_hash_map
-        self.dimension = args.dimension
+        self.dimension = dimension
         self.cut = self.centers
         fail = True
         self.hash_max_distance = 0
         self.max_axis = 0
-
-        for axis in range(self.dimension):
-            distance = abs(self.oh[axis] - self.jh[axis])
-            if distance > self.hash_max_distance:
-                self.hash_max_distance = distance
-                self.max_axis = axis
+        
+        if self.oh[:-1] == self.jh[:-1]:
+            self.max_axis = self.dimension
+        
+        else :
+            for axis in range(self.dimension - 1):
+                distance = abs(self.oh[axis] - self.jh[axis])
+                if distance > self.hash_max_distance:
+                    self.hash_max_distance = distance
+                    self.max_axis = axis
              
         while fail:
             # Execute loop to calculate axis coordinates between two hash coordinates.
@@ -88,8 +92,8 @@ class Coordinate:
                 coord1 = [list(t) for t in self.coords]
                 coord2 = [list(t) for t in self.coords]
 
-                coord1[self.max_axis][1] = self.cut[self.max_axis]
-                coord2[self.max_axis][0] = self.cut[self.max_axis]
+                coord1[self.max_axis][1] = int(self.cut[self.max_axis])
+                coord2[self.max_axis][0] = int(self.cut[self.max_axis])
                 fail = False
                 # store the dimension of the axis to be swapped
                 change_axis = self.max_axis

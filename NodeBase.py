@@ -3,7 +3,11 @@
 """
 
 import numpy as np
-#import torch
+import torch
+import torchvision
+import torchvision.transforms as transforms
+import torchvision.models as models
+import time
 import threading
 import math
 import socket
@@ -20,29 +24,51 @@ import hashlib
 import copy
 import os
 
+from Coordinate import Coordinate
+from Neighbor import Neighbour
+
 class NodeBase:
-    def __init__(self, port):
+    def __init__(self, port, args):
+        self.this_ip = socket.gethostbyname(socket.gethostname())
+        self.this_addr = (self.this_ip, args.port)
+        self.host_addr = (args.host_addr, args.host_port)
+        server_list=[]
+        server_list = os.environ.get('SERVER_ARRAY').split(',')
         self.dimension = args.dimension
+        self.gpu_num = args.gpu_num
+        self.node_num = args.node_num
         self.max_coordinate = args.max_coordinate
-        self.hash_coord = self.hash_to_coordinate(args.hash_text, self.dimension, self.max_coordinate, 123)
-        for i in range(args.dimension):
-            self.hash_coord[i] = random.randint(0,self.max_coordinate)
-        self.port = port
-        self.c = None
-        self.client_table = dict()
-        self.sucess = False
-        self.min_addr = None
+        self.hash_coord = self.content(self.dimension, self.max_coordinate)
         self.past_queue = []
-        #print("node IP is:", this_ip)
-        #print("node Port is:", self.port)
-        print('Node hash table :',this_addr,self.hash_coord) # Print initialized node hash coordinate
+        #self.hash_coord = self.hash_to_coordinate(args.hash_text, self.dimension, self.max_coordinate, 123)
+        if args.bootstrap:
+            self.coord_list = []
+            for i in range(args.dimension):
+                self.coord_list.append(0)
+                self.coord_list.append(args.max_coordinate)
+            self.c = Coordinate(*self.coord_list)  # Initialized Bootstrap node
+            self.n = Neighbour(self.this_addr, self.hash_coord, self.c.coords)  # Neighbout table setting (this_address, hash_coord, coordinate)
+
+            print('Bootstrap hash table :',self.this_addr,self.hash_coord) # Print initialized bootstrap hash coordinate
+        else:
+            #for i in range(args.dimension):
+            #    self.hash_coord[i] = random.randint(0,self.max_coordinate)
+            self.port = port
+            self.c = None
+            self.client_table = dict()
+            self.sucess = False
+            self.min_addr = None
+            self.past_queue = []
+            #print("node IP is:", this_ip)
+            #print("node Port is:", self.port)
+            print('Node hash table :',self.this_addr,self.hash_coord) # Print initialized node hash coordinate
 
         # socket setting
         self.alive = True
 
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        self.socket.bind(this_addr)
+        self.socket.bind(self.this_addr)
         self.socket.setblocking(False)
         self.socket.listen(5)
 
@@ -51,8 +77,9 @@ class NodeBase:
         self.selector.register(self.socket, selectors.EVENT_READ, self.accept_handler)
         self.listen_t = threading.Thread(target=self.run, daemon=True, name="run")
         self.listen_t.start()
-
-        self.join()
+        
+        if args.bootstrap == False :
+            self.join()
         self.mainjob()
 
     def mainjob(self):
@@ -61,8 +88,8 @@ class NodeBase:
 
     def join(self):
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        sock.connect(host_addr)
-        data = ('join', this_addr, self.hash_coord)
+        sock.connect(self.host_addr)
+        data = ('join', self.this_addr, self.hash_coord)
         sock.sendall(pickle.dumps(data))
         sock.close()
 
@@ -112,20 +139,20 @@ class NodeBase:
         if data[0] == 'join':
             #print("Node", data[1], "join.")
             # data : ('join', new Node (ip, port), new Node (hash_coord))
-            #self.node_num += 1
+            self.node_num += 1
             join_node = data[1]
             join_hash = data[2]
-            min_distance = args.max_coordinate ** args.dimension
+            min_distance = self.max_coordinate ** self.dimension
             for a, [h, c] in self.n.neighbour_table.items():
                 d = self.distance(join_hash, h)
                 if d < min_distance:
                     min_distance = d
                     self.min_addr = a
 
-            self.client_table[join_node] = join_hash
+            #self.client_table[join_node] = join_hash
             sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             sock.connect(self.min_addr)
-            data = ('coordinate check', join_node, join_hash,this_addr, self.past_queue)
+            data = ('coordinate check', join_node, join_hash,self.this_addr, self.past_queue)
             sock.sendall(pickle.dumps(data))
             sock.close()
 
@@ -138,17 +165,17 @@ class NodeBase:
             #print('receive queue node',this_addr, data[4])
             #print(queue_nodes)
             if self.c.isContain(new_node_hash):
-                print('This node', this_addr,self.c.coords,'is included in the join Hash coordinate!')
-                origin_coord, join_coord = self.c.Split_Axis(self.hash_coord, new_node_hash)
+                print('This node', self.this_addr,self.c.coords,'is included in the join Hash coordinate!')
+                origin_coord, join_coord = self.c.Split_Axis(self.hash_coord, new_node_hash, self.dimension)
                 self.c = Coordinate(*list(sum(origin_coord, [])))
-                print('-'*10,this_addr, 'original Coordinate Changed','by',data[1],'-'*10)
+                print('-'*10,self.this_addr, 'original Coordinate Changed','by',data[1],'-'*10)
                 self.c.show()
                 # neighbour_update(peer coord, join node (ip, port), join node coord, join node hash_coord)
                 #self.n.neighbour_update(self.c.coords, new_node_addr, join_coord, new_node_hash)
-                self.n.neighbour_table[this_addr] = [self.hash_coord, self.c.coords]
+                self.n.neighbour_table[self.this_addr] = [self.hash_coord, self.c.coords]
                 sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
                 sock.connect(new_node_addr)
-                data = ('set coordinate', join_coord, self.n.get_neighbour_table(), this_addr, self.c.coords, self.hash_coord, self.node_num)
+                data = ('set coordinate', join_coord, self.n.get_neighbour_table(), self.this_addr, self.c.coords, self.hash_coord)
                 sock.sendall(pickle.dumps(data))
                 sock.close()
                 self.n.neighbour_update(self.c.coords)
@@ -157,7 +184,7 @@ class NodeBase:
                 #print('This node is not included in the join Hash coordinate!')
                 self.sucess = False
                 temp_neighbour = copy.deepcopy(self.n.neighbour_table)
-                #del(temp_neighbour[this_addr])
+                #del(temp_neighbour[self.this_addr])
                 for a , [h,c] in temp_neighbour.items():
                     c = Coordinate(*list(sum(c, [])))
                     if c.isContain(new_node_hash):
@@ -169,11 +196,11 @@ class NodeBase:
                         sock.sendall(pickle.dumps(data))
                         sock.close()
                         self.sucess = True
-                        #self.n.neighbour_table[this_addr] = [self.hash_coord, self.c.coords]
+                        #self.n.neighbour_table[self.this_addr] = [self.hash_coord, self.c.coords]
                         break
                 if self.sucess != True:
-                    print('Both this address',this_addr,self.c.coords,'and the neighbor node do not include the join hash coordinate.')
-                    min_distance = args.max_coordinate ** args.dimension
+                    print('Both this address',self.this_addr,self.c.coords,'and the neighbor node do not include the join hash coordinate.')
+                    min_distance = self.max_coordinate ** self.dimension
                     temp_neighbour_table = copy.deepcopy(self.n.neighbour_table)
                     self.past_queue.append(past_addr)
                     for past_node in self.past_queue:
@@ -188,7 +215,7 @@ class NodeBase:
                     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
                     sock.connect(self.min_addr)
                     print('Neighbor node with hash coordinate closest to join hash coordinate :', self.min_addr)
-                    data = ('coordinate check', new_node_addr, new_node_hash, this_addr, self.past_queue)
+                    data = ('coordinate check', new_node_addr, new_node_hash, self.this_addr, self.past_queue)
                     sock.sendall(pickle.dumps(data))
                     sock.close()
                     self.sucess = False
@@ -200,49 +227,41 @@ class NodeBase:
                 self.n.neighbour_table[a] = [h, c]
             # self.n.neighbour_table = copy.deepcopy(data[1])
             self.n.neighbour_update(self.c.coords)
-            #print(this_addr,'update!')
-            #print(this_addr,'neighbour table:', self.n.neighbour_table.keys(), '\n')
-
-        elif data[0] == '_neighbour update':
-            # data = ('_neighbour update', new neighbour address, new neighbour coordinate, new neighbour hash_coord)
-            _new_neighbour_addr = data[1]
-            _new_neighbour_coord = data[2]
-            _new_neighbour_hash = data[3]
-            self.n.neighbour_table[_new_neighbour_addr] = [_new_neighbour_hash, _new_neighbour_coord]
+            #print(self.this_addr,'update!')
+            #print(self.this_addr,'neighbour table:', self.n.neighbour_table.keys(), '\n')
 
         elif data[0] == 'set coordinate':
-            # data : ('set coordinate', join coordinate, neighbour_table (Contain neighbour), address (Contain neighbour), coords (Contain neighbour), number of node)
+            # data : ('set coordinate', join coordinate, neighbour_table (Contain neighbour), address (Contain neighbour), coords (Contain neighbour))
             join_coordinate = data[1]
             contain_neighbour_table = data[2]
             contain_neighbour_addr = data[3]
             contain_neighbour_coord = data[4]
             contain_neighbour_hash = data[5]
-            self.node_num = data[6]
             self.c = Coordinate(*list(sum(join_coordinate, [])))
-            print('-'*10 ,this_addr, 'Set Coordinate', '-'*10)
+            print('-'*10 ,self.this_addr, 'Set Coordinate', '-'*10)
             self.c.show()
-            contain_neighbour_table[this_addr] = [self.hash_coord, self.c.coords]
+            contain_neighbour_table[self.this_addr] = [self.hash_coord, self.c.coords]
             for a , [h,c] in contain_neighbour_table.items():
                 sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
                 sock.connect(a)
                 data = ('neighbour update', contain_neighbour_table)
                 sock.sendall(pickle.dumps(data))
                 sock.close()
-            #contain_neighbour_table[this_addr] = [self.hash_coord, self.c.coords]
+            #contain_neighbour_table[self.this_addr] = [self.hash_coord, self.c.coords]
             contain_neighbour_coords = Coordinate(*list(sum(contain_neighbour_coord, [])))
-            self.n = Neighbour(this_addr, self.hash_coord, self.c.coords)
+            self.n = Neighbour(self.this_addr, self.hash_coord, self.c.coords)
             self.n.neighbour_table = copy.deepcopy(contain_neighbour_table)
             self.n.neighbour_update(self.c.coords)
             #time.sleep(3)
             for past_a in self.past_queue:
                 sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
                 sock.connect(past_a)
-                data = ('queue reset', this_addr)
+                data = ('queue reset', self.this_addr)
                 sock.sendall(pickle.dumps(data))
                 sock.close()
             self.past_queue = []
-            log_file = open("/home/deepl/CAN_python/log.txt", "w")
-            log_file.write("Queue reset!"+"("+str(args.node_num)+")")
+            log_file = open("./log.txt", "w")
+            log_file.write("Queue reset!"+"("+str(self.node_num)+")")
             log_file.close()
             print("done!")
 
@@ -300,3 +319,79 @@ class NodeBase:
         for _ in range(len(a)):
             self.d += abs(int(self.a[_]) - int(self.b[_]))
         return self.d
+
+    def content(self, dimensions, max_coordinate):
+        ######################### dimension 1 #############################
+        if torch.cuda.is_available():
+            device = torch.cuda.current_device()
+            compute_capability = torch.cuda.get_device_capability(device)
+            compute = compute_capability[0] + 0.1*compute_capability[1]
+        else:
+            # no use GPU
+            compute = 0
+        
+        dim1 = int(self.scale_range(compute, 0, 9, self.max_coordinate))
+
+        ######################### dimension 2 #############################
+        # Dataset and Transformation Settings
+        transform = transforms.Compose(
+            [transforms.ToTensor(),
+            transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))])
+
+        batch_size = 64
+
+        # CIFAR-10 dataset load
+        testset = torchvision.datasets.CIFAR10(root='./data', train=False,
+                                       download=False, transform=transform)
+        testloader = torch.utils.data.DataLoader(testset, batch_size=batch_size,
+                                         shuffle=False)
+
+        # ResNet-18 model load
+        model = models.resnet18()
+        model.fc = torch.nn.Linear(512, 10)  # Set to fit the number of CIFAR-10 classes
+        model = model.cuda(self.gpu_num)  # Move the model to the GPU
+
+        # Put the model into inference mode
+        model.eval()
+
+        # Measure inference performance
+        start_time = time.time()
+        num_samples = 0
+
+        with torch.no_grad():
+            for inputs, labels in testloader:
+                inputs, labels = inputs.cuda(self.gpu_num), labels.cuda(self.gpu_num)
+                outputs = model(inputs)
+                num_samples += len(inputs)
+
+        end_time = time.time()
+
+        time_taken = end_time - start_time
+        throughput = num_samples / time_taken
+
+        # print(f"Throughput: {throughput:.2f} samples/second")
+        dim2 = int(self.scale_range(throughput, 0, 10000, self.max_coordinate))
+
+        ######################### dimension 3 #############################
+        gpu_properties = torch.cuda.get_device_properties(self.gpu_num)
+        gpu_memory = gpu_properties.total_memory / 1024**3
+        
+        dim3 = int(self.scale_range(gpu_memory, 0, 32, self.max_coordinate))
+
+        ######################### dimension 4 #############################
+        dim4 = random.randint(0,self.max_coordinate) 
+        
+        return [dim1, dim2, dim3, dim4]
+
+    def scale_range(self, input_value, min_value, max_value, max_coordinate):
+        # Percentage calculation in current range
+        normalized_value = (input_value - min_value) / max_value
+    
+        # Convert to fit the new scope
+        scaled_value = normalized_value * max_coordinate
+    
+        return scaled_value
+
+
+
+

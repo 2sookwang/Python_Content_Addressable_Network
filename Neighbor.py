@@ -20,6 +20,8 @@ import hashlib
 import copy
 import os
 
+from Coordinate import Coordinate
+
 class Neighbour:
     def __init__(self, address, hash_map, coordinate):
         self.addr = address
