@@ -12,7 +12,6 @@
 # ./shellscript.sh 1 7 65536 2048 0 4 5 '220.67.133.165' '220.67.133.166' '220.67.133.82' 220.67.133.110'
 #----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 # Parameter initialize
-start_time=$(date '+%s')
 date=$(date +%m%d)
 CURRENTPATH=$( pwd )
 
@@ -28,11 +27,15 @@ server_array=()
 
 node_nums=`expr "$total_node_nums" / "$number_of_server"`
 ports=12000
+gpu=0
 node=`expr "$ip_num" \* "$node_nums"`
 
 for ((i=6; i<${#parameter_array[@]}; i++)); do
     server_array+=("${parameter_array[i]}")
 done
+
+# Make Log directory
+mkdir log$date
 
 echo Parameter initialize done! Mode $M, $dimension dimension, max coordinate $max_coordinate, node scale $total_node_nums, number of server $number_of_server
 sleep 1
@@ -50,19 +53,33 @@ source ~/anaconda3/bin/activate fed
 while [ $node -lt $node_nums ]; do
     if [ $ports = '12000' ]
     then 
-    (SERVER_ARRAY=$(IFS=,; echo "${server_array[*]}") python3 Main.py --host_addr=${server_array[0]} --bootstrap=True --max_coordinate=$max_coordinate --dimension=$dimension --port=$ports --node_num=$node --node_nums=$total_node_nums) &
+    (SERVER_ARRAY=$(IFS=,; echo "${server_array[*]}") python3 Main.py --host_addr=${server_array[0]} --bootstrap=True --max_coordinate=$max_coordinate --dimension=$dimension --port=$ports --node_num=$node --node_nums=$total_node_nums) --gpu_num=$gpu &
     echo Bootstrap initialized!
     ((ports++))
     ((node++))
+    if [ $gpu = '0' ]
+    then
+    ((gpu++))
+    elif [ $gpu = '1' ]
+    then
+    ((gpu--))
+    fi
     sleep 1
 
     else
     echo Node $node join!
-    (SERVER_ARRAY=$(IFS=,; echo "${server_array[*]}") python3 Main.py --host_addr=${server_array[0]} --max_coordinate=$max_coordinate --dimension=$dimension --port=$ports --node_num=$node --node_nums=$total_node_nums) &
+    (SERVER_ARRAY=$(IFS=,; echo "${server_array[*]}") python3 Main.py --host_addr=${server_array[0]} --max_coordinate=$max_coordinate --dimension=$dimension --port=$ports --node_num=$node --node_nums=$total_node_nums) --gpu_num=$gpu &
     while true; do
         if tail -n 1 log.txt | grep -q "Queue reset!($node)"; then
             ((ports++))
             ((node++))
+            if [ $gpu = '0']
+            then
+            ((gpu++))
+            elif [ $gpu = '1']
+            then
+            ((gpu--))
+            fi
             break
         fi
         sleep 1
@@ -90,11 +107,18 @@ node=$ip_node_nums
 
 while [ $node -lt `expr "$node_nums" + "$ip_node_nums"` ]; do
     echo Node $node join!
-    SERVER_ARRAY=$(IFS=,; echo "${server_array[*]}") python3 Main.py --host_addr=${server_array[0]} --max_coordinate=$max_coordinate --dimension=$dimension --port=$ports --node_num=$node --node_nums=$total_node_nums &
+    SERVER_ARRAY=$(IFS=,; echo "${server_array[*]}") python3 Main.py --host_addr=${server_array[0]} --max_coordinate=$max_coordinate --dimension=$dimension --port=$ports --node_num=$node --node_nums=$total_node_nums --gpu_num=$gpu &
     while true; do
         if tail -n 1 log.txt | grep -q "Queue reset!($node)"; then
             ((ports++))
             ((node++))
+            if [ $gpu = '0']
+            then
+            ((gpu++))
+            elif [ $gpu = '1']
+            then
+            ((gpu--))
+            fi
             break
         fi
         sleep 1
@@ -130,7 +154,7 @@ while true; do
     if tail -n 1 log.txt | grep -q "Verification start!"; then
         for server in "${server_array[@]}"; do
             echo $server log file upload
-            scp -P 6304 deepl@"$server":/home/deepl/CAN_python/log$date/Node*.txt /home/deepl/CAN_python/log$date/
+            scp -P 6304 deepl@"$server":~/Python_Content_Addressable_Network/log$date/Node*.txt ~/Python_Content_Addressable_Network/log$date/
         done
         break
     fi
@@ -139,12 +163,3 @@ done
 
 echo done!
 fi
-
-end_time=$(date '+%s')
-
-diff=$((end_time - start_time))
-hour=$((diff / 3600 % 24))
-minute=$((diff / 60 % 60))
-second=$((diff % 60))
-
-echo "$hour hour $minute minute $second second"
